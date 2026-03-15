@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,8 +22,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -32,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -110,6 +114,11 @@ class MainActivity : ComponentActivity() {
                                 notificationDao.delete(notification)
                             }
                         },
+                        onDeleteAllClick = {
+                            lifecycleScope.launch {
+                                notificationDao.deleteAll()
+                            }
+                        },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -168,9 +177,34 @@ fun MainScreen(
     token: String, 
     notifications: List<NotificationEntity>, 
     onDeleteClick: (NotificationEntity) -> Unit,
+    onDeleteAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isTokenVisible by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text(text = "Usuń wszystkie") },
+            text = { Text(text = "Czy na pewno chcesz usunąć wszystkie powiadomienia?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteAllClick()
+                        showDeleteConfirmDialog = false
+                    }
+                ) {
+                    Text("Tak, usuń")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Anuluj")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -201,11 +235,28 @@ fun MainScreen(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text(
-            text = "Historia powiadomień:",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Historia powiadomień:",
+                style = MaterialTheme.typography.titleLarge
+            )
+            
+            if (notifications.isNotEmpty()) {
+                IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = "Usuń wszystko",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
         
         if (notifications.isEmpty()) {
             Text(
@@ -275,7 +326,8 @@ fun MainScreenPreview() {
                 NotificationEntity(1, "Tytuł 1", "Treść powiadomienia 1", System.currentTimeMillis()),
                 NotificationEntity(2, "Tytuł 2", "Treść powiadomienia 2", System.currentTimeMillis())
             ),
-            onDeleteClick = {}
+            onDeleteClick = {},
+            onDeleteAllClick = {}
         )
     }
 }
